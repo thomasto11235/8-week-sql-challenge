@@ -85,6 +85,7 @@ FROM   CTE_AllYears4WeeksBeforeAndAfter;
 -- for all of the years
 
 -- First Method
+
 WITH   CTE_SalesByWeekNumberAndYear
 AS     (SELECT   CalendarYear
                , WeekNumber
@@ -120,6 +121,82 @@ SELECT DATEPART(week, '20281228')
      , DATENAME(weekday, '20280101')
      , DATENAME(weekday, '20190101');
 
-
 -- Method 3
--- will be updated later
+
+WITH   CTE_YearlyPivotPoint
+AS     (SELECT   CalendarYear
+               , MAX(WeekDate) AS PivotDate
+               , DATEPART(week, MAX(WeekDate)) AS PivotWeekNumber
+        FROM     sales.CleanWeeklySales
+        WHERE    DAY(WeekDate) <= 15
+                 AND MONTH(WeekDate) = 6
+        GROUP BY CalendarYear)
+,      CTE_StatusOfSales
+AS     (SELECT CWS.CalendarYear
+             , CWS.WeekDate
+             , YPP.PivotDate
+             , CWS.WeekNumber
+             , YPP.PivotWeekNumber
+             , CASE WHEN DATEPART(week, CWS.WeekDate) BETWEEN YPP.PivotWeekNumber AND YPP.PivotWeekNumber + 11 THEN 'After' WHEN DATEPART(week, CWS.WeekDate) BETWEEN YPP.PivotWeekNumber - 12 AND YPP.PivotWeekNumber - 1 THEN 'Before' ELSE NULL END AS StatusOfSales
+             , CWS.Sales
+        FROM   CTE_YearlyPivotPoint AS YPP
+               INNER JOIN sales.CleanWeeklySales AS CWS
+                   ON YPP.CalendarYear = CWS.CalendarYear)
+,      CTE_PreNormalisedSales
+AS     (SELECT   CalendarYear
+               , PivotDate
+               , COUNT(DISTINCT CASE WHEN StatusOfSales = 'Before' THEN WeekNumber END) AS WeeksBeforePivot
+               , COUNT(DISTINCT CASE WHEN StatusOfSales = 'After' THEN WeekNumber END) AS WeeksAfterPivot
+               , SUM(CASE WHEN StatusOfSales = 'Before' THEN Sales END) AS SalesBefore
+               , SUM(CASE WHEN StatusOfSales = 'After' THEN Sales END) AS SalesAfter
+        FROM     CTE_StatusOfSales
+        GROUP BY CalendarYear, PivotDate)
+,      CTE_NormalisedSales
+AS     (SELECT CalendarYear
+             , PivotDate
+             , WeeksBeforePivot
+             , WeeksAfterPivot
+             , (CAST (SalesBefore AS FLOAT) / WeeksBeforePivot) * 12 AS NormalisedSalesBefore
+             , (CAST (SalesAfter AS FLOAT) / WeeksAfterPivot) * 12 AS NormalisedSalesAfter
+             , ((CAST (SalesAfter AS FLOAT) / WeeksAfterPivot) * 12) - ((CAST (SalesBefore AS FLOAT) / WeeksBeforePivot) * 12) AS Variance
+             , (((CAST (SalesAfter AS FLOAT) / WeeksAfterPivot) * 12) - ((CAST (SalesBefore AS FLOAT) / WeeksBeforePivot) * 12)) / ((CAST (SalesBefore AS FLOAT) / WeeksBeforePivot) * 12) AS VariancePercentage
+        FROM   CTE_PreNormalisedSales)
+SELECT CalendarYear
+     , PivotDate
+     , WeeksBeforePivot
+     , WeeksAfterPivot
+     , CAST (ROUND(NormalisedSalesBefore, 0) AS BIGINT) AS TwelveWeeksBeforeEquivalent
+     , CAST (ROUND(NormalisedSalesAfter, 0) AS BIGINT) AS TwelveWeeksAfterEquivalent
+     , CAST (ROUND(Variance, 0) AS BIGINT) AS TwelveWeeksVariance
+     , FORMAT(VariancePercentage, 'P2') AS TwelveWeeksPercentage
+FROM   CTE_NormalisedSales;
+
+-- Method 4
+
+WITH   CTE_PreNormalisedSales
+AS     (SELECT   CalendarYear
+               , COUNT(DISTINCT CASE WHEN WeekNumber BETWEEN DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) - 12 AND DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) - 1 THEN WeekNumber END) AS WeeksBeforePivot
+               , COUNT(DISTINCT CASE WHEN WeekNumber BETWEEN DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) AND DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) + 11 THEN WeekNumber END) AS WeeksAfterPivot
+               , SUM(CASE WHEN WeekNumber BETWEEN DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) - 12 AND DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) - 1 THEN Sales END) AS SalesBefore
+               , SUM(CASE WHEN WeekNumber BETWEEN DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) AND DATEPART(week, DATEFROMPARTS(CalendarYear, 6, 15)) + 11 THEN Sales END) AS SalesAfter
+        FROM     sales.CleanWeeklySales
+        GROUP BY CalendarYear)
+,      CTE_NormalisedSales
+AS     (SELECT CalendarYear
+             , WeeksBeforePivot
+             , WeeksAfterPivot
+             , SalesBefore
+             , SalesAfter
+             , CAST (SalesBefore AS FLOAT) / WeeksBeforePivot * 12 AS SalesBeforeNormalised
+             , CAST (SalesAfter AS FLOAT) / WeeksAfterPivot * 12 AS SalesAfterNormalised
+             , (CAST (SalesAfter AS FLOAT) / WeeksAfterPivot * 12) - (CAST (SalesBefore AS FLOAT) / WeeksBeforePivot * 12) AS SalesVariance
+             , ((CAST (SalesAfter AS FLOAT) / WeeksAfterPivot * 12) - (CAST (SalesBefore AS FLOAT) / WeeksBeforePivot * 12)) / (CAST (SalesBefore AS FLOAT) / WeeksBeforePivot * 12) AS SalesVariancePercentage
+        FROM   CTE_PreNormalisedSales)
+SELECT CalendarYear
+     , WeeksBeforePivot
+     , WeeksAfterPivot
+     , CAST (ROUND(SalesBeforeNormalised, 0) AS BIGINT) AS TwelveWeeksBeforeEquivalent
+     , CAST (ROUND(SalesAfterNormalised, 0) AS BIGINT) AS TwelveWeeksAfterEquivalent
+     , CAST (ROUND(SalesVariance, 0) AS BIGINT) AS TwelveWeeksVariance
+     , FORMAT(SalesVariancePercentage, 'P2') AS TwelveWeeksPercentage
+FROM   CTE_NormalisedSales;
