@@ -13,7 +13,7 @@ Solutions to Danny Ma's [8 Week SQL Challenge](https://8weeksqlchallenge.com), w
 | 3 | Foodie-Fi | [View Solutions](case-study-3-foodie-fi/) |
 | 4 | Data Bank | [View Solutions](case-study-4-data-bank/) |
 | 5 | Data Mart | [View Solutions](case-study-5-data-mart/) |
-| 6 | Clique Bait | Coming soon |
+| 6 | Clique Bait | [View Solutions](case-study-6-clique-bait/) |
 
 ---
 
