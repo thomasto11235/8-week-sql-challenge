@@ -40,9 +40,7 @@ FROM   balancedtree.Sales AS S1;
 
 -- 6. What is the average revenue for member transactions and non-member transactions?
 SELECT ROUND(CAST (SUM(CASE WHEN [Member] = 1 THEN Price * Qty END) AS FLOAT) / (SELECT COUNT(DISTINCT TxnId)
-                                                                                 FROM   balancedtree.Sales
-                                                                                 WHERE  [Member] = 1), 2) AS AvgMemberRevenue
+                                                                                 FROM   balancedtree.Sales), 2) AS AvgMemberRevenue
      , ROUND(CAST (SUM(CASE WHEN [Member] = 0 THEN Price * Qty END) AS FLOAT) / (SELECT COUNT(DISTINCT TxnId)
-                                                                                 FROM   balancedtree.Sales
-                                                                                 WHERE  [Member] = 0), 2) AS AvgNonMemberRevenue
+                                                                                 FROM   balancedtree.Sales), 2) AS AvgNonMemberRevenue
 FROM   balancedtree.Sales;
