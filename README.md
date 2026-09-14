@@ -14,6 +14,8 @@ Solutions to Danny Ma's [8 Week SQL Challenge](https://8weeksqlchallenge.com), w
 | 4 | Data Bank | [View Solutions](case-study-4-data-bank/) |
 | 5 | Data Mart | [View Solutions](case-study-5-data-mart/) |
 | 6 | Clique Bait | [View Solutions](case-study-6-clique-bait/) |
+| 7 | Balanced Tree Clothing | [View Solutions](case-study-7-balanced-tree-clothing/) |
+| 8 | Fresh Segments | [View Solutions](case-study-8-fresh-segments/) |
 
 ---
 
